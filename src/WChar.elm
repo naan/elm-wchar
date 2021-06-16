@@ -2,13 +2,12 @@ module WChar exposing (stringWidth, width, Width(..))
 
 import Array exposing (Array)
 
-type alias CharTable = Array (Int, Int)
 
 {-| Size of unicode character.
- - Narrow - single width character such as alphabet
- - Wide - double width charcter such as CJK character, emojis
- - Zero - zero width character  
- - Control - control character 
+ - ``Narrow`` - single width character such as alphabet
+ - ``Wide`` - double width charcter such as CJK character, emojis
+ - ``Zero`` - zero width character  
+ - ``Control`` - control character 
 -}
 type Width     -- actual size
     = Narrow   -- 1
@@ -16,14 +15,6 @@ type Width     -- actual size
     | Zero     -- 0
     | Control  -- 0
 
-
-toInt : Width -> Int
-toInt w = 
-    case w of
-       Narrow -> 1
-       Wide -> 2
-       Zero -> 0
-       Control -> -1
 
 {-| Given a unicode string, return its printable length on a terminal.
 
@@ -33,18 +24,17 @@ string ``str``.  Returns ``Nothing`` if a non-printable character is encountered
 stringWidth : String -> Maybe Int
 stringWidth str =
     let
-        result =
-            String.toList str
-                |> List.map width
-                |> List.map toInt
-                |> List.foldl (\c a ->
-                    if c == -1 || a == -1 then -1 else (a + c)
-                    ) 0
+        toInt w = 
+            case w of
+            Narrow -> Just 1
+            Wide -> Just 2
+            Zero -> Just 0
+            Control -> Nothing
     in
-    if result < 0 then
-        Nothing
-    else
-        Just result
+    String.toList str
+        |> List.map width
+        |> List.map toInt
+        |> List.foldl (Maybe.map2 (+)) (Just 0)
 
 
 {-| Given one Unicode character, return its printable length on a terminal.
@@ -104,6 +94,14 @@ width ucs =
     -- binary search in table of wide eastern character
     else
         if binarySearch code wideEastern then Wide else Narrow
+
+
+--
+-- Privates
+--
+
+
+type alias CharTable = Array (Int, Int)
 
 
 binarySearch : Int -> CharTable -> Bool
