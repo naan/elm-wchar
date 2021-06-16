@@ -1,40 +1,66 @@
-module WChar exposing (stringWidth, width)
+module WChar exposing (stringWidth, width, Width(..))
 
 import Array exposing (Array)
 
 type alias CharTable = Array (Int, Int)
 
+{-| Size of unicode character.
+ - Narrow - single width character such as alphabet
+ - Wide - double width charcter such as CJK character, emojis
+ - Zero - zero width character  
+ - Control - control character 
+-}
+type Width     -- actual size
+    = Narrow   -- 1
+    | Wide     -- 2
+    | Zero     -- 0
+    | Control  -- 0
+
+
+toInt : Width -> Int
+toInt w = 
+    case w of
+       Narrow -> 1
+       Wide -> 2
+       Zero -> 0
+       Control -> -1
+
 {-| Given a unicode string, return its printable length on a terminal.
 
 This function returns the width, in cells, necessary to display the unicode
-string ``str``.  Returns ``-1`` if a non-printable character is encountered.
+string ``str``.  Returns ``Nothing`` if a non-printable character is encountered.
 -}
-stringWidth : String -> Int
+stringWidth : String -> Maybe Int
 stringWidth str =
-    String.toList str
-        |> List.foldl (\c a ->
-            let
-                w =
-                    width c
-            in
-            if w == -1 || a == -1 then -1 else (a + w)
-            ) 0
+    let
+        result =
+            String.toList str
+                |> List.map width
+                |> List.map toInt
+                |> List.foldl (\c a ->
+                    if c == -1 || a == -1 then -1 else (a + c)
+                    ) 0
+    in
+    if result < 0 then
+        Nothing
+    else
+        Just result
 
 
 {-| Given one Unicode character, return its printable length on a terminal.
 
 This function returns the width, in cells, necessary to display the character of
-Unicode string character, ``ucs``.  Returns 0 if the ``ucs`` argument has
-no printable effect on a terminal (such as NULL '\0'), -1 if ``ucs`` is
+Unicode string character, ``ucs``.  Returns `Zero` if the ``ucs`` argument has
+no printable effect on a terminal (such as NULL '\0'), `Control` if ``ucs`` is
 not printable, or has an indeterminate effect on the terminal, such as
 a control character.  Otherwise, the number of column positions the
-character occupies on a graphic terminal (1 or 2) is returned.
+character occupies on a graphic terminal (Narrow or Wide) is returned.
 
-The following have a column width of **-1**:
+The following have a column width of **Control**:
   - C0 control characters (``U+001`` through ``U+01F``).
   - C1 control characters and DEL (``U+07F`` through ``U+0A0``).
 
-The following have a column width of **0**:
+The following have a column width of **Zero**:
   - Non-spacing and enclosing combining characters (general
     category code Mn or Me in the Unicode database).
   - NULL (``U+0000``).
@@ -48,12 +74,12 @@ The following have a column width of **0**:
   - WORD JOINER (``U+2060``) *through*
     INVISIBLE SEPARATOR (``U+2063``).
 
-The following have a column width of **1**:
+The following have a column width of **Narrow**:
   - SOFT HYPHEN (``U+00AD``).
   - All remaining characters, including all printable ISO 8859-1
     and WGL4 characters, Unicode control characters, etc.
 
-The following have a column width of **2**:
+The following have a column width of **Wide**:
   - Spacing characters in the East Asian Wide (W) or East Asian
     Full-width (F) category as defined in Unicode Technical
     Report #11 have a column width of 2.
@@ -61,23 +87,23 @@ The following have a column width of **2**:
 -}
 
 
-width : Char -> Int
-width char =
+width : Char -> Width
+width ucs =
     let
-        ucs = 
-            Char.toCode char
+        code = 
+            Char.toCode ucs
     in
     -- test for 8-bit control characters
-    if ucs == 0 then
-        0
-    else if ucs < 32 || (ucs >= 0x7f && ucs < 0xa0) then
-        -1
+    if code == 0 then
+        Zero
+    else if code < 32 || (code >= 0x7f && code < 0xa0) then
+        Control
     -- binary search in table of non-spacing characters
-    else if binarySearch ucs zeroWidth then
-        0
+    else if binarySearch code zeroWidth then
+        Zero
     -- binary search in table of wide eastern character
     else
-        if binarySearch ucs wideEastern then 2 else 1
+        if binarySearch code wideEastern then Wide else Narrow
 
 
 binarySearch : Int -> CharTable -> Bool

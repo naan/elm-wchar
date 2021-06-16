@@ -13,7 +13,7 @@ and [wcwidth](https://github.com/jquast/wcwidth) implemented in Python by Jeff Q
 import WChar
 
 String.length "한"   -- => 1
-WChar.width '한'     -- => 2
+WChar.width '한'     -- => Wide (== 2)
 
 String.length "한글"     -- => 2
 WChar.stringWidth "한글" -- => 4
